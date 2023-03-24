@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Прямая призма</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        color: white;
+        font-family: "Arial Black", Gadget, sans-serif;
+      }
+      canvas {
+        width: 100%;
+        height: 100%;
+      }
+      .controls {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 1;
+      }
+      #scrollInfo {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="info" style="position: absolute"></div>
+    <div class="controls">
+      <p id="scrollInfo">Маштабирывание призмы при помощи колеса мыши</p>
+      <label for="edgeLength">Высота боковых граней:</label>
+      <input type="range" id="edgeLength" min="1" max="10" value="5" />
+      <span class="edgeLengthValue"></span>
+      <br />
+      <label for="edgeWidth">Размер оснований:</label>
+      <input type="range" id="edgeWidth" min="1" max="10" value="5" />
+      <span class="edgeWidthValue"></span>
+      <br />
+      <label for="numSides">Многоугольник в основаниях:</label>
+      <input type="range" id="numSides" min="3" max="10" value="4" />
+      <span class="numSidesValue"></span>
+      <br />
+      <label for="inWarframe">Каркасная модель</label>
+      <input type="checkbox" id="inWarframe" name="warframe" checked />
+    </div>
+    <div id="prism"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+      let isMouseDown = false;
+      editPrismSpanValue = () => {
+        document.querySelector(".edgeLengthValue").innerHTML = edgeLength;
+        document.querySelector(".edgeWidthValue").innerHTML = edgeWidth;
+        document.querySelector(".numSidesValue").innerHTML = numSides;
+      };
+      let edgeLength = document.querySelector("#edgeLength").value;
+      let edgeWidth = document.querySelector("#edgeWidth").value;
+      let numSides = document.querySelector("#numSides").value;
+      editPrismSpanValue();
+
+      // Создаем сцену, камеру и рендерер
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      const renderer = new THREE.WebGLRenderer();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.querySelector("#prism").appendChild(renderer.domElement);
+
+      // Создаем геометрию прямой призмы
+      let geometry = new THREE.CylinderGeometry(
+        edgeLength / 2,
+        edgeLength / 2,
+        edgeLength,
+        numSides
+      );
+
+      // Создаем материал для прямой призмы
+      const material = new THREE.MeshBasicMaterial({
+        color: 0x00ff00,
+        wireframe: true,
+      });
+
+      // Создаем меш и добавляем его на сцену
+      const prism = new THREE.Mesh(geometry, material);
+      scene.add(prism);
+
+      // Перемещаем камеру назад, чтобы было видно прямую призму
+      camera.position.z = 5;
+
+      let isDragging = false;
+      let previousMousePosition = {
+        x: 0,
+        y: 0,
+      };
+      document
+        .querySelector("#prism")
+        .addEventListener("mousedown", (event) => {
+          isDragging = true;
+        });
+      document
+        .querySelector("#prism")
+        .addEventListener("mousemove", (event) => {
+          if (isDragging) {
+            isMouseDown = true;
+            const deltaMove = {
+              x: event.offsetX - previousMousePosition.x,
+              y: event.offsetY - previousMousePosition.y,
+            };
+
+            const deltaRotationQuaternion = new THREE.Quaternion().setFromEuler(
+              new THREE.Euler(
+                toRadians(deltaMove.y * 1),
+                toRadians(deltaMove.x * 1),
+                0,
+                "XYZ"
+              )
+            );
+
+            prism.quaternion.multiplyQuaternions(
+              deltaRotationQuaternion,
+              prism.quaternion
+            );
+          }
+
+          previousMousePosition = {
+            x: event.offsetX,
+            y: event.offsetY,
+          };
+        });
+      document.querySelector("#prism").addEventListener("mouseup", (event) => {
+        isDragging = false;
+      });
+
+      // Функция для преобразования градусов в радианы
+      function toRadians(angle) {
+        return angle * (Math.PI / 180);
+      }
+
+      // Создаем функцию анимации
+      function animate() {
+        requestAnimationFrame(animate);
+        if (!isMouseDown) {
+          prism.rotation.x += 0.01;
+          prism.rotation.y += 0.01;
+        }
+        renderer.render(scene, camera);
+      }
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      function onMouseWheel(event) {
+        prism.scale.x += event.deltaY * 0.0005;
+        prism.scale.y += event.deltaY * 0.0005;
+        prism.scale.z += event.deltaY * 0.0005;
+      }
+
+      window.addEventListener("resize", onWindowResize);
+      window.addEventListener("wheel", onMouseWheel);
+      // Запускаем анимацию
+      animate();
+
+      // Обработчик изменения длины ребер
+      const edgeLengthInput = document.getElementById("edgeLength");
+      edgeLengthInput.addEventListener("input", function () {
+        edgeLength = parseFloat(this.value);
+        geometry = new THREE.CylinderGeometry(
+          edgeWidth / 2,
+          edgeWidth / 2,
+          edgeLength,
+          numSides
+        );
+        prism.geometry = geometry;
+        editPrismSpanValue();
+      });
+
+      const edgeWidthInput = document.getElementById("edgeWidth");
+      edgeWidthInput.addEventListener("input", function () {
+        edgeWidth = parseFloat(this.value);
+        geometry = new THREE.CylinderGeometry(
+          edgeWidth / 2,
+          edgeWidth / 2,
+          edgeLength,
+          numSides
+        );
+        prism.geometry = geometry;
+        editPrismSpanValue();
+      });
+
+      // Обработчик изменения количества граней
+      const numSidesInput = document.getElementById("numSides");
+      numSidesInput.addEventListener("input", function () {
+        numSides = parseInt(this.value);
+        geometry = new THREE.CylinderGeometry(
+          edgeLength / 2,
+          edgeLength / 2,
+          edgeLength,
+          numSides
+        );
+        prism.geometry = geometry;
+        editPrismSpanValue();
+      });
+
+      const raycaster = new THREE.Raycaster();
+      const mouse = new THREE.Vector2();
+      const point = new THREE.Vector3();
+      function onMouseMove(event) {
+        event.preventDefault();
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObject(prism);
+        if (intersects.length > 0) {
+          point.copy(intersects[0].point);
+
+          const info = document.getElementById("info");
+          info.innerHTML = `(X: ${point.x.toFixed(2)}, Y: ${point.y.toFixed(
+            2
+          )}, Z: ${point.z.toFixed(2)})`;
+          info.style.left = event.clientX + 10 + "px";
+          info.style.top = event.clientY + 10 + "px";
+        } else {
+          info.innerHTML = "";
+        }
+      }
+
+      document
+        .querySelector("#inWarframe")
+        .addEventListener("click", (event) => {
+          material.wireframe = event.target.checked;
+        });
+
+      document
+        .querySelector("#prism")
+        .addEventListener("mousemove", onMouseMove, false);
+      info.innerHTML = "";
+    </script>
+  </body>
+</html>
